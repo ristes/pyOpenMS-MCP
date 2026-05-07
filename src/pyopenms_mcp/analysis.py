@@ -174,6 +174,16 @@ def run_peak_picking(
 # ---------------------------------------------------------------------------
 
 
+def _filter_ms1(exp: oms.MSExperiment) -> oms.MSExperiment:
+    """Return a new MSExperiment containing only MS1 spectra from *exp*."""
+    ms1 = oms.MSExperiment()
+    for i in range(exp.getNrSpectra()):
+        spec = exp.getSpectrum(i)
+        if spec.getMSLevel() == 1:
+            ms1.addSpectrum(spec)
+    return ms1
+
+
 def run_feature_detection(
     exp: oms.MSExperiment,
     signal_to_noise: float = 1.0,
@@ -205,19 +215,12 @@ def run_feature_detection(
     picker.pickExperiment(exp, picked, True)
 
     # Step 2: feature finding (centroided, MS1 only)
-    ms1_only = oms.MSExperiment()
-    for i in range(picked.getNrSpectra()):
-        spec = picked.getSpectrum(i)
-        if spec.getMSLevel() == 1:
-            ms1_only.addSpectrum(spec)
+    ms1_only = _filter_ms1(picked)
 
-    # Also include original MS1 spectra in case the data is already centroided
-    # and the peak picker returned no results
+    # Fall back to original MS1 spectra if the data was already centroided
+    # and the peak picker returned no results.
     if ms1_only.getNrSpectra() == 0:
-        for i in range(exp.getNrSpectra()):
-            spec = exp.getSpectrum(i)
-            if spec.getMSLevel() == 1:
-                ms1_only.addSpectrum(spec)
+        ms1_only = _filter_ms1(exp)
 
     feature_map = oms.FeatureMap()
     if ms1_only.getNrSpectra() > 0:

@@ -233,7 +233,7 @@ def plot_3d_features(feature_map: oms.FeatureMap, out: Path) -> Path:
     ax = fig.add_subplot(111, projection="3d")
 
     cycled_colors = itertools.cycle(
-        ["red", "green", "blue", "orange", "purple", "yellow", "cyan", "magenta", "black", "gray"]
+        ["red", "green", "blue", "orange", "purple", "brown", "cyan", "magenta", "black", "gray"]
     )
 
     for feature, color in zip(feature_map, cycled_colors):
@@ -247,7 +247,7 @@ def plot_3d_features(feature_map: oms.FeatureMap, out: Path) -> Path:
                 continue
 
             retention_times = [x[0] / 60 for x in hull_points]
-            intensities = [int(y[1]) for y in hull_points]
+            intensities = [y[1] for y in hull_points]
             mz = sub.getMZ()
 
             ax.plot(retention_times, intensities, zs=mz, zdir="z", color=color, linewidth=1.5)
