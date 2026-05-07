@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pyopenms as oms
 
 
@@ -166,3 +167,78 @@ def run_peak_picking(
         "peaks_per_ms_level": ms_level_peaks,
         "total_peaks": sum(ms_level_peaks.values()),
     }
+
+
+# ---------------------------------------------------------------------------
+# Feature detection
+# ---------------------------------------------------------------------------
+
+
+def run_feature_detection(
+    exp: oms.MSExperiment,
+    signal_to_noise: float = 1.0,
+) -> tuple[oms.FeatureMap, "pd.DataFrame"]:
+    """Run peak picking then feature finding on *exp*.
+
+    Returns a tuple of (FeatureMap, DataFrame).  The DataFrame has columns
+    ``rt_min``, ``mz``, ``intensity``, and ``feature_id``.
+
+    Parameters
+    ----------
+    exp:
+        Loaded MSExperiment.  Profile or centroided data is accepted.
+    signal_to_noise:
+        Minimum signal-to-noise ratio for the peak picker.
+
+    Returns
+    -------
+    A (FeatureMap, DataFrame) tuple.
+    """
+    import pandas as pd
+
+    # Step 1: peak picking
+    picked = oms.MSExperiment()
+    picker = oms.PeakPickerHiRes()
+    pp_params = picker.getParameters()
+    pp_params.setValue("signal_to_noise", signal_to_noise)
+    picker.setParameters(pp_params)
+    picker.pickExperiment(exp, picked, True)
+
+    # Step 2: feature finding (centroided, MS1 only)
+    ms1_only = oms.MSExperiment()
+    for i in range(picked.getNrSpectra()):
+        spec = picked.getSpectrum(i)
+        if spec.getMSLevel() == 1:
+            ms1_only.addSpectrum(spec)
+
+    # Also include original MS1 spectra in case the data is already centroided
+    # and the peak picker returned no results
+    if ms1_only.getNrSpectra() == 0:
+        for i in range(exp.getNrSpectra()):
+            spec = exp.getSpectrum(i)
+            if spec.getMSLevel() == 1:
+                ms1_only.addSpectrum(spec)
+
+    feature_map = oms.FeatureMap()
+    if ms1_only.getNrSpectra() > 0:
+        ms1_only.updateRanges()
+        ff = oms.FeatureFinderAlgorithmPicked()
+        ff_params = ff.getParameters()
+        seeds = oms.FeatureMap()
+        ff.run(ms1_only, feature_map, ff_params, seeds)
+    feature_map.sortByPosition()
+
+    # Build a DataFrame from the feature map
+    rows: list[dict] = []
+    for feature in feature_map:
+        rows.append(
+            {
+                "feature_id": feature.getUniqueId(),
+                "rt_min": feature.getRT() / 60.0,
+                "mz": feature.getMZ(),
+                "intensity": feature.getIntensity(),
+            }
+        )
+
+    df = pd.DataFrame(rows, columns=["feature_id", "rt_min", "mz", "intensity"])
+    return feature_map, df
