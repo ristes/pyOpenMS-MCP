@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 from mcp.server.fastmcp import FastMCP
 
 from pyopenms_mcp import analysis, storage, visualizations
@@ -412,8 +414,23 @@ def plot_3d_features(file_id: str, signal_to_noise: float = 1.0) -> dict:
 
 
 def main() -> None:
-    """Run the MCP server using stdio transport (default for MCP clients)."""
-    mcp.run()
+    """Run the MCP server.
+
+    Transport is selected via the ``MCP_TRANSPORT`` environment variable:
+
+    * ``stdio`` (default) – standard-input/output, suitable for local MCP
+      clients.
+    * ``sse`` – HTTP Server-Sent Events, suitable for remote / containerised
+      deployments.  Listens on ``MCP_HOST`` (default ``0.0.0.0``) and
+      ``MCP_PORT`` (default ``8000``).
+    """
+    transport = os.environ.get("MCP_TRANSPORT", "stdio").lower()
+    if transport == "sse":
+        host = os.environ.get("MCP_HOST", "0.0.0.0")
+        port = int(os.environ.get("MCP_PORT", "8000"))
+        mcp.run(transport="sse", host=host, port=port)
+    else:
+        mcp.run()
 
 
 if __name__ == "__main__":

@@ -1,0 +1,17 @@
+services:
+  pyopenms-mcp:
+    build: .
+    image: pyopenms-mcp:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - pyopenms_data:/data
+    environment:
+      MCP_TRANSPORT: sse
+      MCP_HOST: "0.0.0.0"
+      MCP_PORT: "8000"
+      PYOPENMS_MCP_DATA_DIR: /data
+    restart: unless-stopped
+
+volumes:
+  pyopenms_data:
