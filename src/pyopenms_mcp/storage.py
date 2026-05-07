@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
@@ -27,6 +28,12 @@ def _uploads_dir() -> Path:
 
 def _cache_dir() -> Path:
     d = _data_dir() / "cache"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _plots_dir() -> Path:
+    d = _data_dir() / "plots"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -164,3 +171,25 @@ def store_cached_result(
     key = _cache_key(file_id, analysis_type, params)
     with _cache_file(key).open("w") as fh:
         json.dump(result, fh, indent=2)
+
+
+# ---------------------------------------------------------------------------
+# Plot storage
+# ---------------------------------------------------------------------------
+
+
+def plot_path(file_id: str, plot_type: str, params: dict | None = None) -> Path:
+    """Return the path where a plot should be stored.
+
+    The path is deterministic based on *file_id*, *plot_type*, and *params*
+    so the same request always maps to the same file.
+    """
+    params_str = json.dumps(params or {}, sort_keys=True)
+    h = hashlib.sha256(params_str.encode()).hexdigest()[:8]
+    return _plots_dir() / f"{file_id}_{plot_type}_{h}.png"
+
+
+def encode_image_base64(path: Path) -> str:
+    """Return the base64-encoded contents of an image file."""
+    with path.open("rb") as fh:
+        return base64.b64encode(fh.read()).decode("ascii")
